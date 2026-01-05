@@ -53,32 +53,19 @@ export const PlinkoBoard = ({
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
-  // Neon colors for random ball coloring
-  const neonColors = [
-    '#ff00ff', '#00ffff', '#ff0080', '#80ff00', '#ff8000', 
-    '#00ff80', '#8000ff', '#ffff00', '#ff0040', '#40ff00'
-  ];
-
-  const getRandomNeonColor = useCallback(() => {
-    return neonColors[Math.floor(Math.random() * neonColors.length)];
-  }, []);
-
   // Create ball function - bigger ball size (0.04 instead of 0.025)
   const createBall = useCallback((x: number, y: number) => {
     if (!engineRef.current) return null;
     
     const ballRadius = dimensions.width * 0.04;
-    const fillColor = getRandomNeonColor();
-    const strokeColor = getRandomNeonColor();
-    
     const ball = Matter.Bodies.circle(x, y, ballRadius, {
       restitution: bounciness,
       friction: friction,
       frictionAir: 0.001,
       label: 'ball',
       render: {
-        fillStyle: fillColor,
-        strokeStyle: strokeColor,
+        fillStyle: '#ff00ff',
+        strokeStyle: '#00ffff',
         lineWidth: 2,
       },
     });
@@ -86,7 +73,7 @@ export const PlinkoBoard = ({
     Matter.World.add(engineRef.current.world, ball);
     ballsRef.current.push(ball);
     return ball;
-  }, [dimensions.width, bounciness, friction, getRandomNeonColor]);
+  }, [dimensions.width, bounciness, friction]);
 
   // Initialize physics engine
   useEffect(() => {
@@ -117,27 +104,21 @@ export const PlinkoBoard = ({
     });
     renderRef.current = render;
 
-    // Create walls - extended upward with ceiling
+    // Create walls
     const wallThickness = 20;
-    const wallHeight = height * 1.5; // Extend walls above the visible area
     const walls = [
       // Bottom
       Matter.Bodies.rectangle(width / 2, height + wallThickness / 2, width, wallThickness, {
         isStatic: true,
         render: { fillStyle: '#1a1a2e' },
       }),
-      // Ceiling
-      Matter.Bodies.rectangle(width / 2, -wallThickness / 2, width, wallThickness, {
+      // Left wall
+      Matter.Bodies.rectangle(-wallThickness / 2, height / 2, wallThickness, height, {
         isStatic: true,
         render: { fillStyle: '#1a1a2e' },
       }),
-      // Left wall - extended upward
-      Matter.Bodies.rectangle(-wallThickness / 2, height / 2 - wallHeight / 4, wallThickness, wallHeight, {
-        isStatic: true,
-        render: { fillStyle: '#1a1a2e' },
-      }),
-      // Right wall - extended upward
-      Matter.Bodies.rectangle(width + wallThickness / 2, height / 2 - wallHeight / 4, wallThickness, wallHeight, {
+      // Right wall
+      Matter.Bodies.rectangle(width + wallThickness / 2, height / 2, wallThickness, height, {
         isStatic: true,
         render: { fillStyle: '#1a1a2e' },
       }),
@@ -201,18 +182,16 @@ export const PlinkoBoard = ({
     // Add all bodies to world
     Matter.World.add(engine.world, [...walls, ...pegs, ...dividers, ...sensors]);
 
-    // Create initial ball - bigger size with random neon colors
+    // Create initial ball - bigger size
     const ballRadius = width * 0.04;
-    const initialFillColor = neonColors[Math.floor(Math.random() * neonColors.length)];
-    const initialStrokeColor = neonColors[Math.floor(Math.random() * neonColors.length)];
     const initialBall = Matter.Bodies.circle(width / 2, height * 0.08, ballRadius, {
       restitution: bounciness,
       friction: friction,
       frictionAir: 0.001,
       label: 'ball',
       render: {
-        fillStyle: initialFillColor,
-        strokeStyle: initialStrokeColor,
+        fillStyle: '#ff00ff',
+        strokeStyle: '#00ffff',
         lineWidth: 2,
       },
     });
@@ -346,11 +325,10 @@ export const PlinkoBoard = ({
       ballsRef.current.forEach((ball) => {
         const { x, y } = ball.position;
         const radius = (ball as any).circleRadius || dimensions.width * 0.04;
-        const strokeColor = (ball.render as any).strokeStyle || '#00ffff';
         
-        // Draw line through ball using ball's stroke color
+        // Draw line through ball
         context.beginPath();
-        context.strokeStyle = strokeColor;
+        context.strokeStyle = '#00ffff';
         context.lineWidth = 2;
         const angle = ball.angle;
         context.moveTo(
