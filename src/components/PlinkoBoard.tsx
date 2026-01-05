@@ -53,19 +53,30 @@ export const PlinkoBoard = ({
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
+  // Generate random neon color with 180 degree hue rotation for outline
+  const generateNeonColors = useCallback(() => {
+    const hue = Math.random() * 360;
+    const complementaryHue = (hue + 180) % 360;
+    return {
+      fill: `hsl(${hue}, 100%, 50%)`,
+      stroke: `hsl(${complementaryHue}, 100%, 50%)`,
+    };
+  }, []);
+
   // Create ball function - bigger ball size (0.04 instead of 0.025)
   const createBall = useCallback((x: number, y: number) => {
     if (!engineRef.current) return null;
     
     const ballRadius = dimensions.width * 0.04;
+    const colors = generateNeonColors();
     const ball = Matter.Bodies.circle(x, y, ballRadius, {
       restitution: bounciness,
       friction: friction,
       frictionAir: 0.001,
       label: 'ball',
       render: {
-        fillStyle: '#ff00ff',
-        strokeStyle: '#00ffff',
+        fillStyle: colors.fill,
+        strokeStyle: colors.stroke,
         lineWidth: 2,
       },
     });
@@ -73,7 +84,7 @@ export const PlinkoBoard = ({
     Matter.World.add(engineRef.current.world, ball);
     ballsRef.current.push(ball);
     return ball;
-  }, [dimensions.width, bounciness, friction]);
+  }, [dimensions.width, bounciness, friction, generateNeonColors]);
 
   // Initialize physics engine
   useEffect(() => {
@@ -104,21 +115,27 @@ export const PlinkoBoard = ({
     });
     renderRef.current = render;
 
-    // Create walls
+    // Create walls - extend walls above the board to contain balls
     const wallThickness = 20;
+    const wallHeight = height * 1.5; // Extend walls upward
     const walls = [
       // Bottom
       Matter.Bodies.rectangle(width / 2, height + wallThickness / 2, width, wallThickness, {
         isStatic: true,
         render: { fillStyle: '#1a1a2e' },
       }),
-      // Left wall
-      Matter.Bodies.rectangle(-wallThickness / 2, height / 2, wallThickness, height, {
+      // Left wall - extends above the board
+      Matter.Bodies.rectangle(-wallThickness / 2, height / 2 - height * 0.25, wallThickness, wallHeight, {
         isStatic: true,
         render: { fillStyle: '#1a1a2e' },
       }),
-      // Right wall
-      Matter.Bodies.rectangle(width + wallThickness / 2, height / 2, wallThickness, height, {
+      // Right wall - extends above the board
+      Matter.Bodies.rectangle(width + wallThickness / 2, height / 2 - height * 0.25, wallThickness, wallHeight, {
+        isStatic: true,
+        render: { fillStyle: '#1a1a2e' },
+      }),
+      // Top ceiling
+      Matter.Bodies.rectangle(width / 2, -wallThickness / 2, width, wallThickness, {
         isStatic: true,
         render: { fillStyle: '#1a1a2e' },
       }),
@@ -182,16 +199,18 @@ export const PlinkoBoard = ({
     // Add all bodies to world
     Matter.World.add(engine.world, [...walls, ...pegs, ...dividers, ...sensors]);
 
-    // Create initial ball - bigger size
+    // Create initial ball - bigger size with random neon colors
     const ballRadius = width * 0.04;
+    const initialHue = Math.random() * 360;
+    const initialComplementaryHue = (initialHue + 180) % 360;
     const initialBall = Matter.Bodies.circle(width / 2, height * 0.08, ballRadius, {
       restitution: bounciness,
       friction: friction,
       frictionAir: 0.001,
       label: 'ball',
       render: {
-        fillStyle: '#ff00ff',
-        strokeStyle: '#00ffff',
+        fillStyle: `hsl(${initialHue}, 100%, 50%)`,
+        strokeStyle: `hsl(${initialComplementaryHue}, 100%, 50%)`,
         lineWidth: 2,
       },
     });
@@ -326,9 +345,9 @@ export const PlinkoBoard = ({
         const { x, y } = ball.position;
         const radius = (ball as any).circleRadius || dimensions.width * 0.04;
         
-        // Draw line through ball
+        // Draw line through ball using the ball's stroke color
         context.beginPath();
-        context.strokeStyle = '#00ffff';
+        context.strokeStyle = (ball.render as any).strokeStyle || '#00ffff';
         context.lineWidth = 2;
         const angle = ball.angle;
         context.moveTo(
