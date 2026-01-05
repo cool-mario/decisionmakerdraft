@@ -199,67 +199,87 @@ export const PlinkoBoard = ({
     Matter.World.add(engine.world, initialBall);
     ballsRef.current = [initialBall];
 
-    // Mouse control with velocity tracking
+    // Mouse control - ball follows mouse with velocity proportional to distance
     const mouse = Matter.Mouse.create(canvasRef.current);
-    const mouseConstraint = Matter.MouseConstraint.create(engine, {
-      mouse: mouse,
-      constraint: {
-        stiffness: 0.9,
-        render: { visible: false },
-      },
-    });
-    mouseConstraintRef.current = mouseConstraint;
-    Matter.World.add(engine.world, mouseConstraint);
+    mouseConstraintRef.current = null; // We don't use constraint, just track mouse
+    
+    let isDragging = false;
+    const dropZoneHeight = height * 0.15;
+    const pullStrength = 0.15; // How strongly ball is pulled toward mouse
 
-    // Track mouse velocity
-    const trackMouseVelocity = () => {
-      if (draggedBallRef.current && mouse.position) {
-        const now = performance.now();
-        const lastPos = lastMousePosRef.current;
-        
-        if (lastPos) {
-          const dt = (now - lastPos.time) / 1000;
-          if (dt > 0 && dt < 0.1) {
-            mouseVelocityRef.current = {
-              x: (mouse.position.x - lastPos.x) / dt * 0.15,
-              y: (mouse.position.y - lastPos.y) / dt * 0.15,
-            };
+    // Handle mouse down - start dragging if clicking on a static ball
+    const handleMouseDown = () => {
+      const mousePos = mouse.position;
+      if (!mousePos) return;
+      
+      // Find if clicking on a static ball
+      for (const ball of ballsRef.current) {
+        if ((ball as any).isStatic) {
+          const dx = mousePos.x - ball.position.x;
+          const dy = mousePos.y - ball.position.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const radius = (ball as any).circleRadius || width * 0.04;
+          
+          if (dist < radius + 10) {
+            isDragging = true;
+            draggedBallRef.current = ball;
+            break;
           }
         }
-        
-        lastMousePosRef.current = { x: mouse.position.x, y: mouse.position.y, time: now };
       }
     };
 
-    // Handle mouse events for dragging
-    Matter.Events.on(mouseConstraint, 'startdrag', (event: any) => {
-      if (event.body?.label === 'ball') {
-        draggedBallRef.current = event.body;
-        Matter.Body.setStatic(event.body, true);
-        mouseVelocityRef.current = { x: 0, y: 0 };
-        lastMousePosRef.current = null;
-      }
-    });
-
-    Matter.Events.on(mouseConstraint, 'enddrag', (event: any) => {
-      if (event.body?.label === 'ball' && draggedBallRef.current) {
-        const ball = event.body;
-        // Restrict drop area to top portion
-        const dropZoneHeight = height * 0.15;
+    // Handle mouse up - release the ball
+    const handleMouseUp = () => {
+      if (isDragging && draggedBallRef.current) {
+        const ball = draggedBallRef.current;
+        // Only drop if in drop zone
         if (ball.position.y < dropZoneHeight) {
+          // Get current velocity and release
+          const velocity = ball.velocity;
           Matter.Body.setStatic(ball, false);
-          Matter.Body.setVelocity(ball, mouseVelocityRef.current);
-        } else {
-          // Move ball back to top if released outside drop zone
-          Matter.Body.setPosition(ball, { x: ball.position.x, y: height * 0.08 });
+          Matter.Body.setVelocity(ball, velocity);
         }
+        isDragging = false;
         draggedBallRef.current = null;
-        lastMousePosRef.current = null;
+      }
+    };
+
+    canvasRef.current.addEventListener('mousedown', handleMouseDown);
+    canvasRef.current.addEventListener('mouseup', handleMouseUp);
+    canvasRef.current.addEventListener('mouseleave', handleMouseUp);
+    
+    // Touch support
+    canvasRef.current.addEventListener('touchstart', handleMouseDown);
+    canvasRef.current.addEventListener('touchend', handleMouseUp);
+
+    // Apply velocity toward mouse on each physics update
+    Matter.Events.on(engine, 'beforeUpdate', () => {
+      if (isDragging && draggedBallRef.current && mouse.position) {
+        const ball = draggedBallRef.current;
+        const mousePos = mouse.position;
+        
+        // Calculate direction and distance to mouse
+        const dx = mousePos.x - ball.position.x;
+        const dy = mousePos.y - ball.position.y;
+        
+        // Velocity proportional to distance
+        const vx = dx * pullStrength;
+        const vy = dy * pullStrength;
+        
+        // Keep ball in drop zone while dragging
+        let newY = ball.position.y + vy * 0.1;
+        newY = Math.min(newY, dropZoneHeight - 10);
+        newY = Math.max(newY, 20);
+        
+        let newX = ball.position.x + vx * 0.1;
+        newX = Math.max(newX, 30);
+        newX = Math.min(newX, width - 30);
+        
+        Matter.Body.setPosition(ball, { x: newX, y: newY });
+        Matter.Body.setVelocity(ball, { x: vx, y: vy });
       }
     });
-
-    // Track velocity during drag
-    Matter.Events.on(engine, 'beforeUpdate', trackMouseVelocity);
 
     // Collision detection for sound and winning
     Matter.Events.on(engine, 'collisionStart', (event) => {
@@ -343,6 +363,9 @@ export const PlinkoBoard = ({
     Matter.Runner.run(runner, engine);
     Matter.Render.run(render);
 
+    // Store canvas ref for cleanup
+    const canvas = canvasRef.current;
+    
     // Cleanup
     return () => {
       Matter.Render.stop(render);
@@ -350,6 +373,13 @@ export const PlinkoBoard = ({
       Matter.World.clear(engine.world, false);
       Matter.Engine.clear(engine);
       ballsRef.current = [];
+      
+      // Remove event listeners
+      canvas?.removeEventListener('mousedown', handleMouseDown);
+      canvas?.removeEventListener('mouseup', handleMouseUp);
+      canvas?.removeEventListener('mouseleave', handleMouseUp);
+      canvas?.removeEventListener('touchstart', handleMouseDown);
+      canvas?.removeEventListener('touchend', handleMouseUp);
     };
   }, [dimensions, gravity, bounciness, friction, playWoodHit, onWin]);
 
