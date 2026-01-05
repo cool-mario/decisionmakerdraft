@@ -30,6 +30,8 @@ export const PlinkoBoard = ({
   const ballsRef = useRef<Matter.Body[]>([]);
   const draggedBallRef = useRef<Matter.Body | null>(null);
   const mouseConstraintRef = useRef<Matter.MouseConstraint | null>(null);
+  const mouseVelocityRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const lastMousePosRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const [dimensions, setDimensions] = useState({ width: 600, height: 700 });
   const [winningSlot, setWinningSlot] = useState<number | null>(null);
   const { playWoodHit } = useWoodSound();
@@ -51,11 +53,11 @@ export const PlinkoBoard = ({
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
-  // Create ball function
+  // Create ball function - bigger ball size (0.04 instead of 0.025)
   const createBall = useCallback((x: number, y: number) => {
     if (!engineRef.current) return null;
     
-    const ballRadius = dimensions.width * 0.025;
+    const ballRadius = dimensions.width * 0.04;
     const ball = Matter.Bodies.circle(x, y, ballRadius, {
       restitution: bounciness,
       friction: friction,
@@ -122,30 +124,6 @@ export const PlinkoBoard = ({
       }),
     ];
 
-    // Create triangular corner deflectors
-    const deflectorSize = width * 0.08;
-    const leftDeflector = Matter.Bodies.fromVertices(
-      deflectorSize / 2,
-      boardTop + deflectorSize / 2,
-      [[
-        { x: 0, y: 0 },
-        { x: deflectorSize, y: deflectorSize },
-        { x: 0, y: deflectorSize },
-      ]],
-      { isStatic: true, render: { fillStyle: '#ff00ff' }, label: 'peg' }
-    );
-    
-    const rightDeflector = Matter.Bodies.fromVertices(
-      width - deflectorSize / 2,
-      boardTop + deflectorSize / 2,
-      [[
-        { x: deflectorSize, y: 0 },
-        { x: deflectorSize, y: deflectorSize },
-        { x: 0, y: deflectorSize },
-      ]],
-      { isStatic: true, render: { fillStyle: '#ff00ff' }, label: 'peg' }
-    );
-
     // Create pegs
     const pegs: Matter.Body[] = [];
     const pegAreaHeight = height - boardTop - slotHeight - height * 0.05;
@@ -202,10 +180,11 @@ export const PlinkoBoard = ({
     }
 
     // Add all bodies to world
-    Matter.World.add(engine.world, [...walls, leftDeflector, rightDeflector, ...pegs, ...dividers, ...sensors]);
+    Matter.World.add(engine.world, [...walls, ...pegs, ...dividers, ...sensors]);
 
-    // Create initial ball
-    const initialBall = Matter.Bodies.circle(width / 2, height * 0.08, dimensions.width * 0.025, {
+    // Create initial ball - bigger size
+    const ballRadius = width * 0.04;
+    const initialBall = Matter.Bodies.circle(width / 2, height * 0.08, ballRadius, {
       restitution: bounciness,
       friction: friction,
       frictionAir: 0.001,
@@ -220,42 +199,81 @@ export const PlinkoBoard = ({
     Matter.World.add(engine.world, initialBall);
     ballsRef.current = [initialBall];
 
-    // Mouse control
+    // Mouse control with velocity tracking
     const mouse = Matter.Mouse.create(canvasRef.current);
     const mouseConstraint = Matter.MouseConstraint.create(engine, {
       mouse: mouse,
       constraint: {
-        stiffness: 0.2,
+        stiffness: 0.9,
         render: { visible: false },
       },
     });
     mouseConstraintRef.current = mouseConstraint;
     Matter.World.add(engine.world, mouseConstraint);
 
+    // Track mouse velocity
+    const trackMouseVelocity = () => {
+      if (draggedBallRef.current && mouse.position) {
+        const now = performance.now();
+        const lastPos = lastMousePosRef.current;
+        
+        if (lastPos) {
+          const dt = (now - lastPos.time) / 1000;
+          if (dt > 0 && dt < 0.1) {
+            mouseVelocityRef.current = {
+              x: (mouse.position.x - lastPos.x) / dt * 0.15,
+              y: (mouse.position.y - lastPos.y) / dt * 0.15,
+            };
+          }
+        }
+        
+        lastMousePosRef.current = { x: mouse.position.x, y: mouse.position.y, time: now };
+      }
+    };
+
     // Handle mouse events for dragging
     Matter.Events.on(mouseConstraint, 'startdrag', (event: any) => {
       if (event.body?.label === 'ball') {
         draggedBallRef.current = event.body;
         Matter.Body.setStatic(event.body, true);
+        mouseVelocityRef.current = { x: 0, y: 0 };
+        lastMousePosRef.current = null;
       }
     });
 
     Matter.Events.on(mouseConstraint, 'enddrag', (event: any) => {
       if (event.body?.label === 'ball' && draggedBallRef.current) {
-        Matter.Body.setStatic(event.body, false);
+        const ball = event.body;
+        // Restrict drop area to top portion
+        const dropZoneHeight = height * 0.15;
+        if (ball.position.y < dropZoneHeight) {
+          Matter.Body.setStatic(ball, false);
+          Matter.Body.setVelocity(ball, mouseVelocityRef.current);
+        } else {
+          // Move ball back to top if released outside drop zone
+          Matter.Body.setPosition(ball, { x: ball.position.x, y: height * 0.08 });
+        }
         draggedBallRef.current = null;
+        lastMousePosRef.current = null;
       }
     });
+
+    // Track velocity during drag
+    Matter.Events.on(engine, 'beforeUpdate', trackMouseVelocity);
 
     // Collision detection for sound and winning
     Matter.Events.on(engine, 'collisionStart', (event) => {
       event.pairs.forEach((pair) => {
         const { bodyA, bodyB } = pair;
         
-        // Play sound on peg collision
-        if ((bodyA.label === 'ball' && bodyB.label === 'peg') ||
-            (bodyA.label === 'peg' && bodyB.label === 'ball')) {
-          const ball = bodyA.label === 'ball' ? bodyA : bodyB;
+        // Play sound on any collision with ball (pegs, walls, dividers)
+        const isBallA = bodyA.label === 'ball';
+        const isBallB = bodyB.label === 'ball';
+        const ball = isBallA ? bodyA : isBallB ? bodyB : null;
+        const otherBody = isBallA ? bodyB : bodyA;
+        
+        // Skip sensor collisions for sound
+        if (ball && otherBody && !otherBody.isSensor) {
           const now = Date.now();
           const lastTime = lastCollisionTime.current.get(ball.id) || 0;
           
@@ -286,7 +304,7 @@ export const PlinkoBoard = ({
       
       ballsRef.current.forEach((ball) => {
         const { x, y } = ball.position;
-        const radius = (ball as any).circleRadius || dimensions.width * 0.025;
+        const radius = (ball as any).circleRadius || dimensions.width * 0.04;
         
         // Draw line through ball
         context.beginPath();
