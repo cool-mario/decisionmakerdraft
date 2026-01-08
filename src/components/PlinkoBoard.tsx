@@ -141,18 +141,21 @@ export const PlinkoBoard = ({
       }),
     ];
 
-    // Create pegs
+    // Create pegs - with extra margin from walls (peg radius) to prevent ball getting stuck
     const pegs: Matter.Body[] = [];
     const pegAreaHeight = height - boardTop - slotHeight - height * 0.05;
     const rowSpacing = pegAreaHeight / (PEG_ROWS + 1);
+    const sideMargin = pegRadius * 2; // Extra margin from walls
 
     for (let row = 0; row < PEG_ROWS; row++) {
       const pegsInRow = row % 2 === 0 ? PEGS_PER_ROW_BASE : PEGS_PER_ROW_BASE - 1;
-      const rowOffset = row % 2 === 0 ? 0 : slotWidth / 2;
-      const startX = (width - (pegsInRow - 1) * slotWidth) / 2 + rowOffset;
+      const availableWidth = width - sideMargin * 2;
+      const effectiveSlotWidth = availableWidth / (PEGS_PER_ROW_BASE - 1);
+      const rowOffset = row % 2 === 0 ? 0 : effectiveSlotWidth / 2;
+      const startX = sideMargin + rowOffset;
 
       for (let col = 0; col < pegsInRow; col++) {
-        const x = startX + col * slotWidth - rowOffset;
+        const x = startX + col * effectiveSlotWidth;
         const y = boardTop + rowSpacing * (row + 1);
         
         const peg = Matter.Bodies.circle(x, y, pegRadius, {
