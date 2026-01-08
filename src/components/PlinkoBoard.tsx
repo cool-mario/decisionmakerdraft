@@ -160,7 +160,7 @@ export const PlinkoBoard = ({
         
         const peg = Matter.Bodies.circle(x, y, pegRadius, {
           isStatic: true,
-          restitution: bounciness,
+          restitution: 0.95, // Default value, will be updated by dynamic effect
           label: 'peg',
           render: {
             fillStyle: '#00ffff',
@@ -207,8 +207,8 @@ export const PlinkoBoard = ({
     const initialHue = Math.random() * 360;
     const initialComplementaryHue = (initialHue + 180) % 360;
     const initialBall = Matter.Bodies.circle(width / 2, height * 0.08, ballRadius, {
-      restitution: bounciness,
-      friction: friction,
+      restitution: 0.95, // Default value, will be updated by dynamic effect
+      friction: 0.1,
       frictionAir: 0.001,
       label: 'ball',
       render: {
@@ -403,7 +403,26 @@ export const PlinkoBoard = ({
       canvas?.removeEventListener('touchstart', handleMouseDown);
       canvas?.removeEventListener('touchend', handleMouseUp);
     };
-  }, [dimensions, gravity, bounciness, friction, playWoodHit, onWin]);
+  }, [dimensions, playWoodHit, onWin]);
+
+  // Dynamically update physics settings without remounting
+  useEffect(() => {
+    if (!engineRef.current) return;
+    
+    // Update gravity
+    engineRef.current.gravity.y = gravity;
+    
+    // Update bounciness and friction on all balls and pegs
+    const allBodies = Matter.Composite.allBodies(engineRef.current.world);
+    allBodies.forEach((body) => {
+      if (body.label === 'ball') {
+        body.restitution = bounciness;
+        body.friction = friction;
+      } else if (body.label === 'peg') {
+        body.restitution = bounciness;
+      }
+    });
+  }, [gravity, bounciness, friction]);
 
   // Keyboard controls
   useEffect(() => {

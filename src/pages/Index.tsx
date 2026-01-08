@@ -8,24 +8,14 @@ const DEFAULT_LABELS = ['Yes', 'No', 'Maybe', 'Ask Again', 'Definitely', 'Never'
 const Index = () => {
   const [labels, setLabels] = useState<string[]>(DEFAULT_LABELS);
   const [gravity, setGravity] = useState(1);
-  const [bounciness, setBounciness] = useState(0.6);
+  const [bounciness, setBounciness] = useState(0.95);
   const [friction, setFriction] = useState(0.1);
   const [backgroundColor, setBackgroundColor] = useState('#0a0a1a');
   const [winningLabel, setWinningLabel] = useState<string | null>(null);
-  const [key, setKey] = useState(0);
 
   const handleWin = useCallback((index: number) => {
     setWinningLabel(labels[index]);
   }, [labels]);
-
-  // Force remount when physics settings change
-  const handleSettingsChange = (
-    setter: (v: number) => void,
-    value: number
-  ) => {
-    setter(value);
-    setKey((k) => k + 1);
-  };
 
   return (
     <div 
@@ -34,11 +24,11 @@ const Index = () => {
     >
       <SettingsPanel
         gravity={gravity}
-        setGravity={(v) => handleSettingsChange(setGravity, v)}
+        setGravity={setGravity}
         bounciness={bounciness}
-        setBounciness={(v) => handleSettingsChange(setBounciness, v)}
+        setBounciness={setBounciness}
         friction={friction}
-        setFriction={(v) => handleSettingsChange(setFriction, v)}
+        setFriction={setFriction}
         backgroundColor={backgroundColor}
         setBackgroundColor={setBackgroundColor}
       />
@@ -81,7 +71,6 @@ const Index = () => {
         <LabelEditor labels={labels} setLabels={setLabels} />
 
         <PlinkoBoard
-          key={key}
           labels={labels}
           gravity={gravity}
           bounciness={bounciness}
