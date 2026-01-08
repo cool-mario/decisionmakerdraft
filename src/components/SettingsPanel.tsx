@@ -96,7 +96,7 @@ export const SettingsPanel = ({
                 <input
                   type="range"
                   min="0.1"
-                  max="1"
+                  max="2"
                   step="0.05"
                   value={bounciness}
                   onChange={(e) => setBounciness(parseFloat(e.target.value))}
@@ -112,7 +112,7 @@ export const SettingsPanel = ({
                 <input
                   type="range"
                   min="0"
-                  max="0.5"
+                  max="2"
                   step="0.05"
                   value={friction}
                   onChange={(e) => setFriction(parseFloat(e.target.value))}
