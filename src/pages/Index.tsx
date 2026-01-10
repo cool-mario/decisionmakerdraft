@@ -3,7 +3,7 @@ import { PlinkoBoard } from '@/components/PlinkoBoard';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { LabelEditor } from '@/components/LabelEditor';
 
-const DEFAULT_LABELS = ['Yes', 'No', 'Maybe', 'Ask Again', 'Definitely', 'Never'];
+const DEFAULT_LABELS = ['Yes', 'No', 'Yes', 'No', 'Yes', 'No'];
 
 const Index = () => {
   const [labels, setLabels] = useState<string[]>(DEFAULT_LABELS);
@@ -50,9 +50,21 @@ const Index = () => {
           Let physics make your decisions!
         </p>
 
+
+        <LabelEditor labels={labels} setLabels={setLabels} />
+
+        <PlinkoBoard
+          labels={labels}
+          gravity={gravity}
+          bounciness={bounciness}
+          friction={friction}
+          backgroundColor={backgroundColor}
+          onWin={handleWin}
+        />
+
         {winningLabel && (
           <div
-            className="text-center py-3 px-6 rounded-lg mb-4 animate-pulse"
+            className="text-center py-3 px-6 rounded-lg mt-6 animate-pulse"
             style={{
               backgroundColor: 'rgba(0, 255, 255, 0.2)',
               border: '2px solid #00ffff',
@@ -67,17 +79,6 @@ const Index = () => {
             </span>
           </div>
         )}
-
-        <LabelEditor labels={labels} setLabels={setLabels} />
-
-        <PlinkoBoard
-          labels={labels}
-          gravity={gravity}
-          bounciness={bounciness}
-          friction={friction}
-          backgroundColor={backgroundColor}
-          onWin={handleWin}
-        />
       </div>
     </div>
   );

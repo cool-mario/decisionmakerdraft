@@ -29,6 +29,7 @@ export const PlinkoBoard = ({
   const runnerRef = useRef<Matter.Runner | null>(null);
   const ballsRef = useRef<Matter.Body[]>([]);
   const draggedBallRef = useRef<Matter.Body | null>(null);
+  const addBallButtonRef = useRef<HTMLButtonElement>(null);
   const mouseConstraintRef = useRef<Matter.MouseConstraint | null>(null);
   const mouseVelocityRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const lastMousePosRef = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -451,6 +452,10 @@ export const PlinkoBoard = ({
         case 'Enter':
           e.preventDefault();
           Matter.Body.setStatic(activeBall, false);
+          // Focus the Add Ball button so next space press adds a new ball
+          setTimeout(() => {
+            addBallButtonRef.current?.focus();
+          }, 50);
           break;
       }
     };
@@ -518,6 +523,7 @@ export const PlinkoBoard = ({
       {/* Controls */}
       <div className="flex gap-2 mt-4 justify-center">
         <button
+          ref={addBallButtonRef}
           onClick={addBall}
           className="px-4 py-2 rounded font-bold text-sm"
           style={{
