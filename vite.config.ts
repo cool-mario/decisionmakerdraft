@@ -5,7 +5,7 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: '/plinko-decision-maker/',
+  base: '/decisionmakerdraft/',
   server: {
     host: "::",
     port: 8080,
