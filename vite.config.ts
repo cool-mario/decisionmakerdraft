@@ -5,7 +5,8 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: '/decisionmakerdraft/',
+  // GitHub Pages project sites are served from /<repo-name>/
+  base: "/plinko-decision-maker/",
   server: {
     host: "::",
     port: 8080,
